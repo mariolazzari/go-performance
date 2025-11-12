@@ -1,44 +1,3 @@
-# Go: Performance Tuning and Benchmarking
-
-## Benchmarking basics
-
-### What is benchmarking
-
-- Performance measure
-- Make data-driven decisions
-
-### Go test tool
-
-- Deterministic performances
-- Enviroment should be quiet
-- Constant results
-
-#### Command line options
-
-- bench: which test
-- cpu: parallel CPUs
-- benchtime: elapsed time
-- test: execution
-
-```sh
-go test -run ^$ -bench
-go test -run none -bench
-```
-
-### Benchmarking in Go
-
-- Average time
-- Enough time
-- Iterations
-
-#### Benchtime
-
-- Timers: StopTimer, ResetTimer
-- Dfaulted to 1s
-
-### Benchmark structure
-
-```go
 package fibonacci
 
 import (
@@ -100,12 +59,3 @@ func TestFibonacci(t *testing.T) {
 		})
 	}
 }
-```
-
-```sh
-go test -run none -bench BenchmarkN
-```
-
-## Managing benchmark timer
-
-### Benchmark timer
