@@ -109,3 +109,120 @@ go test -run none -bench BenchmarkN
 ## Managing benchmark timer
 
 ### Benchmark timer
+
+- b.StopTimer
+- b.startTimer
+- b.ResetTimer
+
+```sh
+go test -bench .
+```
+
+```go
+func BenchmarkCount(b *testing.B) {
+	words, err := LoadFile("testdata/alice-in-wonderland.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 0; i < b.N; i++ {
+		Count(allWords)
+	}
+}
+```
+
+### Cleaning up
+
+```go
+package cleanup
+
+import (
+	"fmt"
+	"math/rand"
+	"os"
+	"path"
+	"testing"
+)
+
+func BenchmarkWriteBytes(b *testing.B) {
+	b.StopTimer()
+
+	dir, err := os.MkdirTemp("testdata", "write*")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		var buf [16]byte
+		rand.Read(buf[:])
+		fn := path.Join(dir, fmt.Sprintf("%x", buf[:]))
+
+		out, err := os.Create(fn)
+		if err != nil {
+			b.Fatal(err)
+		}
+		defer out.Close()
+		message := "benchmarking in go!"
+		b.StartTimer()
+		fmt.Fprintf(out, message)
+		b.StopTimer()
+		b.SetBytes(int64(len(message)))
+	}
+}
+```
+
+### Table driven
+
+```go
+package rand
+
+import (
+	cryptorand "crypto/rand"
+	mathrand "math/rand"
+	"testing"
+)
+
+func BenchmarkRandRead(b *testing.B) {
+	funcs := map[string]func([]byte) (int, error){
+		"mathrand":   mathrand.Read,
+		"cryptorand": cryptorand.Read,
+	}
+
+	for name, f := range funcs {
+		buf := make([]byte, 128)
+		b.Run(name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				f(buf)
+			}
+		})
+	}
+}
+
+func BenchmarkRandReadInterleved(b *testing.B) {
+	funcs := map[string]func([]byte) (int, error){
+		"mathrand":   mathrand.Read,
+		"cryptorand": cryptorand.Read,
+	}
+
+	for name, f := range funcs {
+		buf := make([]byte, 128)
+		b.Run(name, func(b *testing.B) {
+			b.StopTimer()
+			for i := 0; i < b.N; i++ {
+				b.StartTimer()
+				f(buf)
+				b.StopTimer()
+			}
+		})
+	}
+}
+```
+
+### Parallel benchmark
+
+```sh
+go test -run none -bench . -cpu 1,2,4,6
+```
+
+## Benchmark accurancy
+
+### Inlined functions
