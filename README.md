@@ -226,3 +226,145 @@ go test -run none -bench . -cpu 1,2,4,6
 ## Benchmark accurancy
 
 ### Inlined functions
+
+```go
+package inline
+
+import (
+	"math/rand"
+	"testing"
+	"runtime"
+)
+
+func Add(x, y int) int {
+	return x + y
+}
+
+func BenchmarkAdd(b *testing.B) {
+	x, y := rand.Int(), rand.Int()
+	var sum int
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sum += Add(x, y)
+	}
+	runtime.KeepAlive(&sum)
+}
+```
+
+### Forgetting iterate
+
+```go
+package noiterate
+
+import (
+	"math"
+	"math/rand"
+	"testing"
+)
+
+//go:noinline
+func Hypot(a, b float64) float64 {
+	return math.Sqrt(a*a + b*b)
+}
+
+func BenchmarkWithoutIterating(b *testing.B) {
+	x, y := rand.Float64(), rand.Float64()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Hypot(x,y)
+	}
+}
+```
+
+### Bad wall
+
+```go
+package ratio
+
+import (
+	"fmt"
+	"io/fs"
+	"os"
+	"testing"
+)
+
+//go:noinline
+func Add(x, y int) int {
+	return x + y
+}
+
+func BenchmarkBadRatio(b *testing.B) {
+	// walk a file system, open a text file, read the contents, then benchmark adding them.
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		root := os.DirFS("testdata/numbers")
+		fs.WalkDir(root, ".", func(p string, d fs.DirEntry, err error) error {
+			if d.IsDir() {
+				return nil
+			}
+
+			in, err := root.Open(p)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer in.Close()
+
+			var x, y int
+			if n, err := fmt.Fscanf(in, "%d, %d\n", &x, &y); n != 2 || err != nil {
+				b.Fatalf("could not read integer pair from %q", p)
+			}
+
+			b.StartTimer()
+			Add(x, y)
+			b.StopTimer()
+			return nil
+		})
+	}
+}
+```
+
+### Challenge: optimizing ID
+
+```go
+package crockford
+
+import (
+	"testing"
+)
+
+func TestNewID(t *testing.T) {
+	t.Logf("NewID() = %s", NewID())
+}
+
+func TestEncode(t *testing.T) {
+	tests := map[string]struct {
+		input    []byte
+		expected string
+	}{
+		"empty string": {},
+		"simple": {
+			input:    []byte("The quick brown fox jumps over the lazy dog."),
+			expected: "AHM6A83HENMP6TS0C9S6YXVE41K6YY10D9TPTW3K41QQCSBJ41T6GS90DHGQMY90CHQPEBG=",
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got, expected := Encode(test.input), test.expected; got != expected {
+				t.Fatalf("Expected Encode(%q) to return %q; got %q", test.input, expected, got)
+			}
+		})
+	}
+}
+```
+
+## Comparing benchmarks
+
+### Using benchstat
+
+```go
+
+```
